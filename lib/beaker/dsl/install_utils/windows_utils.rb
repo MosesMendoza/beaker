@@ -143,7 +143,9 @@ exit /B %errorlevel%
 
             # (PA-514) value for PUPPET_AGENT_STARTUP_MODE should be present in
             # registry and honored after install/upgrade.
-            reg_query_command = %Q(reg query "HKLM\\SOFTWARE\\Wow6432Node\\Puppet Labs\\PuppetInstaller" /v "RememberedPuppetAgentStartupMode" | findstr #{msi_opts['PUPPET_AGENT_STARTUP_MODE']})
+            reg_key = host.is_x86_64? ? "HKLM\\SOFTWARE\\Wow6432Node\\Puppet Labs\\PuppetInstaller" :
+                                        "HKLM\\SOFTWARE\\Puppet Labs\\PuppetInstaller"
+            reg_query_command = %Q(reg query "#{reg_key}" /v "RememberedPuppetAgentStartupMode" | findstr #{msi_opts['PUPPET_AGENT_STARTUP_MODE']})
             on host, Command.new(reg_query_command, [], { :cmdexe => true })
 
             start_mode = msi_opts['PUPPET_AGENT_STARTUP_MODE'] == "Automatic" ? "Auto" : msi_opts['PUPPET_AGENT_STARTUP_MODE']

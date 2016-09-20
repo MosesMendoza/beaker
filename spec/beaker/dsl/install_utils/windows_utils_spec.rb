@@ -62,6 +62,10 @@ describe ClassMixedWithDSLInstallUtils do
   end
 
   def expect_reg_query_called(times = hosts.length)
+    hosts.each do |host|
+      expect(host).to receive(:is_x86_64?).and_return(:true)
+    end
+
     expect( Beaker::Command ).to receive( :new )
       .with(%r{reg query "HKLM\\SOFTWARE\\Wow6432Node\\Puppet Labs\\PuppetInstaller}, [], {:cmdexe => true})
       .exactly(times).times
@@ -156,17 +160,39 @@ describe ClassMixedWithDSLInstallUtils do
       subject.install_msi_on(hosts, msi_path, {'PUPPET_AGENT_STARTUP_MODE' => "Foo"})
     end
 
-    it 'will check the registry for remembered startup setting via reg query' do
+    it 'will search in Wow6432Node for the remembered startup setting on 64-bit hosts' do
       expect_install_called
       expect_status_called
       expect_startup_query_called
       expect_version_log_called
 
+      hosts.each do |host|
+        expect(host).to receive(:is_x86_64?).and_return(true)
+      end
+
       expect( Beaker::Command ).to receive( :new )
         .with('reg query "HKLM\\SOFTWARE\\Wow6432Node\\Puppet Labs\\PuppetInstaller" /v "RememberedPuppetAgentStartupMode" | findstr Foo', [], {:cmdexe => true})
         .exactly(hosts.length).times
-        subject.install_msi_on(hosts, msi_path, {'PUPPET_AGENT_STARTUP_MODE' => "Foo"})
+
+      subject.install_msi_on(hosts, msi_path, {'PUPPET_AGENT_STARTUP_MODE' => "Foo"})
+    end
+
+    it 'will omit Wow6432Node in the registry search for remembered startup setting on 32-bit hosts' do
+      expect_install_called
+      expect_status_called
+      expect_startup_query_called
+      expect_version_log_called
+
+      hosts.each do |host|
+        expect(host).to receive(:is_x86_64?).and_return(false)
       end
+
+      expect( Beaker::Command ).to receive( :new )
+        .with('reg query "HKLM\\SOFTWARE\\Puppet Labs\\PuppetInstaller" /v "RememberedPuppetAgentStartupMode" | findstr Foo', [], {:cmdexe => true})
+        .exactly(hosts.length).times
+
+      subject.install_msi_on(hosts, msi_path, {'PUPPET_AGENT_STARTUP_MODE' => "Foo"})
+    end
   end
 
   describe '#create_install_msi_batch_on' do
